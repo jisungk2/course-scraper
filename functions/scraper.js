@@ -12,56 +12,87 @@ const scrapeData = async () => {
     });
 
 
-    const body = await page.evaluate(() => {
-        const pageReference = document.querySelector('.item-list .pager .pager-item a');
-        const courseList = document.querySelectorAll('.layout-center__content .search-results .search-result');
+    let courses = {courseCodeList: [], courseNameList: [], courseProfList: []};
+    while (true) {
+        const codes = await page.evaluate(() => {
+            
+            const courseList = document.querySelectorAll('.layout-center__content .search-results .search-result');
 
-        let nextPage = pageReference.getAttribute('href');
+            const courseCodes = Array.from(courseList).map((course) => {
+                const courseCode = course.querySelector('.handlebarData .result-wrapper .hbr .col-wrapper .left-col .ls-term-year-section-wrapper .ls-section-name-number-code .ls-section-wrapper .ls-section-name');
+                return courseCode.innerText;
+            })
+            return courseCodes;
+        });
 
-        const courseCodeList = Array.from(courseList).map((course) => {
-            const courseCode = course.querySelector('.handlebarData .result-wrapper .hbr .col-wrapper .left-col .ls-term-year-section-wrapper .ls-section-name-number-code .ls-section-wrapper .ls-section-name');
-            return courseCode.innerText;
+        const names = await page.evaluate(() => {
+            
+            const courseList = document.querySelectorAll('.layout-center__content .search-results .search-result');
+
+            const courseNames = Array.from(courseList).map((course) => {
+                const courseName = course.querySelector('.handlebarData .result-wrapper .hbr .col-wrapper .left-col .ls-course-title');
+                return courseName.innerText;
+            })
+            return courseNames;
+        });
+
+        const profs = await page.evaluate(() => {
+            
+            const courseList = document.querySelectorAll('.layout-center__content .search-results .search-result');
+
+            const courseProfs = Array.from(courseList).map((course) => {
+                const courseProf = course.querySelector('.handlebarData .result-wrapper .hbr .col-wrapper .left-col .ls-instructors');
+                return (courseProf) ? courseProf.innerText : 'To Be Determined';
+            })
+            return courseProfs;
+        });
+
+        courses.courseCodeList = courses.courseCodeList.concat(codes);
+        courses.courseNameList = courses.courseNameList.concat(names);
+        courses.courseProfList = courses.courseProfList.concat(profs);
+
+        const nextPageUrl = await page.evaluate(() => {
+            const pageReference = document.querySelector('.item-list .pager .pager-next a');
+            if (!pageReference) {
+                return;
+            }
+            let nextPage = pageReference.getAttribute('href');
+    
+            return nextPage;
         })
 
-        const courseNameList = Array.from(courseList).map((course) => {
-            const courseName = course.querySelector('.handlebarData .result-wrapper .hbr .col-wrapper .left-col .ls-course-title');
-            return courseName.innerText;
-        })
+        if (!nextPageUrl) {
+            break;
+        }
 
-        const courseProfList = Array.from(courseList).map((course) => {
-            const courseProf = course.querySelector('.handlebarData .result-wrapper .hbr .col-wrapper .left-col .ls-instructors');
-            return courseProf.innerText;
-        })
-
-        // const imgReference = document.querySelector('#mp-otd #mp-otd-img img');
-        // const listReference = document.querySelectorAll('#mp-otd > ul li');
-
-        // let imgSource = imgReference.getAttribute('src');
-        // imgSource = imgSource.replace('thumb/', '');
-        // let fileExIndex = Math.max(imgSource.indexOf('.jpg/'), imgSource.indexOf('.JPG/'), imgSource.indexOf('.png/'), imgSource.indexOf('.PNG/'));
-
-        // imgSource = imgSource.substring(0, fileExIndex + 4);
-
-        // const list = Array.from(listReference).map((item) => {
-        //     const itemLink = item.querySelector('b a').getAttribute('href');
-
-        //     return {
-        //         link: itemLink ? `https://en.wikipedia.org/${itemLink}` : undefined,
-        //         text: item.innerText
-        //     }
+        // await page.goto(`https://classes.berkeley.edu${nextPageUrl}`, {
+        //     waitUntil: "domcontentloaded"
         // });
 
-        return { pageReference, courseCodeList, courseNameList, courseProfList, nextPage };
-    });
+        const response = await retry(() => page.goto(`https://classes.berkeley.edu${nextPageUrl}`, {
+            waitUntil: "domcontentloaded"
+        }), 1000);
+    }
 
     browser.close();
 
-    return body;
-
+    return courses;
 }
+
+const retry = (fn, ms) => new Promise(resolve => { 
+    fn()
+      .then(resolve)
+      .catch(() => {
+        setTimeout(() => {
+          console.log('retrying...');
+          retry(fn, ms).then(resolve);
+        }, ms);
+      })
+  });
 
 scrapeData().then((res) => {
     console.log(res);
 });
+
 
 exports.scrapeData = scrapeData;

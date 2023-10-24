@@ -15,7 +15,7 @@ exports.pubsub = functions
     .region("us-central1")
     .runWith({ memory: '2GB' })
     .pubsub.schedule("0 0 * * *")
-    .timeZone("USA/San Francisco")
+    .timeZone("US/Pacific")
     .onRun(async () => {
         try {
             const scrapedData = await scraper.scrapeData();
